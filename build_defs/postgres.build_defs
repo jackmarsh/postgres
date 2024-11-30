@@ -44,5 +44,7 @@ def postgres(name:str, version:str, hashes:list=[], visibility:list=[]):
             install + '|share',
         ],
         deps = [install],
+        binary=True,
+        visibility=visibility,
     )
         
