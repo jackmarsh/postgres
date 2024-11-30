@@ -1,3 +1,3 @@
 # Postgres
 
-Tool to build statically linked PostgreSQL binaries from source.
+Tool to build PostgreSQL binaries from source.
