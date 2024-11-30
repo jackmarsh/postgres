@@ -1,0 +1,48 @@
+def postgres(name:str, version:str, hashes:list=[], visibility:list=[]):
+
+    # Download the PostgreSQL source.
+    url = f"https://ftp.postgresql.org/pub/source/v{version}/postgresql-{version}.tar.gz"
+    download = remote_file(
+        name=tag(name, "download"),
+        url=url,
+        hashes=hashes,
+    )
+    # 
+    extract = build_rule(
+        name=name,
+        tag='extract',
+        srcs=[download],
+        outs=[f'postgresql-{version}'],
+        cmd = 'tar -xzf $SRC',
+        building_description = f'Extracting PostgreSQL v{version}...',
+    )
+    install = build_rule(
+        name=f'_{name}_install', # --prefix doesn't recognise #
+        srcs=[extract],
+        outs = {
+            "bin": ['psql/bin'],
+            "lib": ['psql/lib'],
+            "include": ['psql/include'],
+            "share": ['psql/share'],
+        },
+        cmd = ' && '.join([
+            'mkdir -p psql',
+            'cd $SRC',
+            './configure --prefix "$HOME/psql"',
+            'make',
+            'make install',
+            'cd $HOME',
+        ]),
+        building_description = f'Installing PostgreSQL v{version}...',
+    )
+    filegroup(
+        name=name,
+        srcs=[
+            install + '|bin',
+            install + '|lib',
+            install + '|include',
+            install + '|share',
+        ],
+        deps = [install],
+    )
+        
