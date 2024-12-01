@@ -72,3 +72,11 @@ You can find pre-built binaries for supported OS and architecture combinations i
 ## Releases
 
 You can find all available versions and corresponding binaries on the [releases page](https://github.com/jackmarsh/postgres/releases).
+
+---
+
+## Request Additional Prebuilt Binaries
+
+If you need a prebuilt binary for a specific PostgreSQL version, operating system, or architecture that is not currently included in the release assets, feel free to reach out or [open an issue](https://github.com/jackmarsh/postgres/issues). 
+
+We're happy to consider adding additional prebuilt binaries to future releases!
