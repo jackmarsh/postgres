@@ -1,50 +1,93 @@
-def postgres(name:str, version:str, hashes:list=[], visibility:list=[]):
+def postgres(name:str, version:str, os=None, arch=None, hashes:list=[], visibility:list=[], configure_flags:list=[], _compress:bool=False):
+    """
+    Builds PostgreSQL binaries from source for a specific OS and architecture.
 
+    Args:
+        name (str): Name of the rule.
+        version (str): PostgreSQL version to build.
+        os (str): Target operating system. Defaults to the current OS.
+        arch (str): Target architecture. Defaults to the current architecture.
+        hashes (list): Optional hashes to verify the download.
+        visibility (list): Visibility declaration for the rule.
+        configure_flags (list): Additional flags for PostgreSQL's configure script.
+    """
+    if not os:
+        if CONFIG.OS == 'linux':
+            os = 'linux'
+        elif CONFIG.OS == 'darwin':
+            os = 'osx'
+        else:
+            raise ParseError(f'Unknown OS {CONFIG.OS}, you must pass explitly')
+    if not arch:
+        if CONFIG.ARCH == 'amd64':
+            arch = 'x86_64'
+        elif CONFIG.ARCH == 'x86':
+            arch = 'i686'
+        else:
+            raise ParseError(f'Unknown architecture {CONFIG.ARCH}, you must pass explitly')
+        
+    target = f'{os}_{arch}'
+    
     # Download the PostgreSQL source.
     url = f"https://ftp.postgresql.org/pub/source/v{version}/postgresql-{version}.tar.gz"
     download = remote_file(
-        name=tag(name, "download"),
+        name=tag(name, f"download_{target}"),
         url=url,
         hashes=hashes,
     )
     # 
     extract = build_rule(
         name=name,
-        tag='extract',
+        tag=f'extract_{target}',
         srcs=[download],
-        outs=[f'postgresql-{version}'],
-        cmd = 'tar -xzf $SRC',
-        building_description = f'Extracting PostgreSQL v{version}...',
+        outs=[f'postgresql-{version}-{target}'],
+        cmd = ' && '.join([
+            'tar -xzf $SRC',
+            f'mv postgresql-{version} $OUT'
+        ]),
+        building_description = f'Extracting PostgreSQL v{version} for {target}...',
     )
     install = build_rule(
-        name=f'_{name}_install', # --prefix doesn't recognise #
+        # Don't tag, --prefix doesn't recognise '#'.
+        name=f'_{name}_{target}_install', 
         srcs=[extract],
         outs = {
-            "bin": ['psql/bin'],
-            "lib": ['psql/lib'],
-            "include": ['psql/include'],
-            "share": ['psql/share'],
+            "bin": [f'{target}/psql/bin'],
+            "lib": [f'{target}/psql/lib'],
+            "include": [f'{target}/psql/include'],
+            "share": [f'{target}/psql/share'],
         },
         cmd = ' && '.join([
-            'mkdir -p psql',
+            f'mkdir -p {target}/psql',
             'cd $SRC',
-            './configure --prefix "$HOME/psql"',
+            f'./configure --prefix "$HOME/{target}/psql" ' + ' '.join(configure_flags),
             'make',
             'make install',
             'cd $HOME',
         ]),
-        building_description = f'Installing PostgreSQL v{version}...',
+        building_description = f'Installing PostgreSQL v{version} for {target}...',
     )
-    filegroup(
-        name=name,
-        srcs=[
-            install + '|bin',
-            install + '|lib',
-            install + '|include',
-            install + '|share',
-        ],
-        deps = [install],
-        binary=True,
-        visibility=visibility,
-    )
-        
+    if _compress:
+        tarball(
+            name=name,
+            out=f'psql-{version}-{target}.tar.gz',
+            srcs=[
+                install + '|bin',
+                install + '|lib',
+                install + '|include',
+                install + '|share',
+            ],
+        )
+    else:
+        filegroup(
+            name=name,
+            srcs=[
+                install + '|bin',
+                install + '|lib',
+                install + '|include',
+                install + '|share',
+            ],
+            deps = [install],
+            binary=True,
+            visibility=visibility,
+        )
